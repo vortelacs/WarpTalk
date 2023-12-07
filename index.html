@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="WarpTalk client example_files/warptalk.js"></script>
+  <script src="script/script.js"></script>
+  <title>WhatsApp-Clone</title>
+</head>
+<html>
+
+  <header class="header">
+    <div class="logo">
+      <h1>WhatsApp-Clone</h1>
+    </div>
+  </header>
+
+  <body>
+    <div class="window">
+      <div class="sidebar">
+        <div class="contact-list">
+          <div class="contact-list-header">
+            <h2>Contacts</h2>
+          </div>
+          <div id="contact-list"></div>
+
+
+        </div>
+      </div>
+
+
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="contact-info">
+                <h2 id="chat-room-name"></h2>
+            </div>
+            <div class="users">
+                <p id="user-list"></p>
+            </div>
+        </div>
+        <div class="chat-messages"></div>
+        <div class="chat-input">
+            <textarea id="message-input" placeholder="Type a message..."></textarea>
+            <button class="send-button" onclick="
+            const messageInput = document.getElementById('message-input');
+            const message = messageInput.value;
+            if (message.trim() !== '') {
+                room.send(message);
+                messageInput.value = '';
+            }
+            ">
+              <img class="icon-button send-button" src="assets/send.png" alt="">
+            </button>
+        </div>
+    </div>
+</div>
+</div>
+  </body>
+</html>

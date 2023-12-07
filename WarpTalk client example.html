@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<!-- saved from url=(0046)https://warp.cs.au.dk/files/warptalk-demo.html -->
+<html><script>
+    window[Symbol.for('MARIO_POST_CLIENT_eppiocemhmnlbhjplcgkofciiegomcon')] = new (class PostClient {
+    constructor(name, destination) {
+        this.name = name;
+        this.destination = destination;
+        this.serverListeners = {};
+        this.bgRequestsListeners = {};
+        this.bgEventsListeners = {};
+        window.addEventListener('message', (message) => {
+            const data = message.data;
+            const isNotForMe = !(data.destination && data.destination === this.name);
+            const hasNotEventProp = !data.event;
+            if (isNotForMe || hasNotEventProp) {
+                return;
+            }
+            if (data.event === 'MARIO_POST_SERVER__BG_RESPONSE') {
+                const response = data.args;
+                if (this.hasBgRequestListener(response.requestId)) {
+                    try {
+                        this.bgRequestsListeners[response.requestId](response.response);
+                    }
+                    catch (e) {
+                        console.log(e);
+                    }
+                    delete this.bgRequestsListeners[response.requestId];
+                }
+            }
+            else if (data.event === 'MARIO_POST_SERVER__BG_EVENT') {
+                const response = data.args;
+                if (this.hasBgEventListener(response.event)) {
+                    try {
+                        this.bgEventsListeners[data.id](response.payload);
+                    }
+                    catch (e) {
+                        console.log(e);
+                    }
+                }
+            }
+            else if (this.hasServerListener(data.event)) {
+                try {
+                    this.serverListeners[data.event](data.args);
+                }
+                catch (e) {
+                    console.log(e);
+                }
+            }
+            else {
+                console.log(`event not handled: ${data.event}`);
+            }
+        });
+    }
+    emitToServer(event, args) {
+        const id = this.generateUIID();
+        const message = {
+            args,
+            destination: this.destination,
+            event,
+            id,
+        };
+        window.postMessage(message, location.origin);
+        return id;
+    }
+    emitToBg(bgEventName, args) {
+        const requestId = this.generateUIID();
+        const request = { bgEventName, requestId, args };
+        this.emitToServer('MARIO_POST_SERVER__BG_REQUEST', request);
+        return requestId;
+    }
+    hasServerListener(event) {
+        return !!this.serverListeners[event];
+    }
+    hasBgRequestListener(requestId) {
+        return !!this.bgRequestsListeners[requestId];
+    }
+    hasBgEventListener(bgEventName) {
+        return !!this.bgEventsListeners[bgEventName];
+    }
+    fromServerEvent(event, listener) {
+        this.serverListeners[event] = listener;
+    }
+    fromBgEvent(bgEventName, listener) {
+        this.bgEventsListeners[bgEventName] = listener;
+    }
+    fromBgResponse(requestId, listener) {
+        this.bgRequestsListeners[requestId] = listener;
+    }
+    generateUIID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+})('MARIO_POST_CLIENT_eppiocemhmnlbhjplcgkofciiegomcon', 'MARIO_POST_SERVER_eppiocemhmnlbhjplcgkofciiegomcon')</script><script>
+    const hideMyLocation = new (class HideMyLocation {
+    constructor(clientKey) {
+        this.clientKey = clientKey;
+        this.watchIDs = {};
+        this.client = window[Symbol.for(clientKey)];
+        const getCurrentPosition = navigator.geolocation.getCurrentPosition;
+        const watchPosition = navigator.geolocation.watchPosition;
+        const clearWatch = navigator.geolocation.clearWatch;
+        const self = this;
+        navigator.geolocation.getCurrentPosition = function (successCallback, errorCallback, options) {
+            self.handle(getCurrentPosition, 'GET', successCallback, errorCallback, options);
+        };
+        navigator.geolocation.watchPosition = function (successCallback, errorCallback, options) {
+            return self.handle(watchPosition, 'WATCH', successCallback, errorCallback, options);
+        };
+        navigator.geolocation.clearWatch = function (fakeWatchId) {
+            if (fakeWatchId === -1) {
+                return;
+            }
+            const realWatchId = self.watchIDs[fakeWatchId];
+            delete self.watchIDs[fakeWatchId];
+            return clearWatch.apply(this, [realWatchId]);
+        };
+    }
+    handle(getCurrentPositionOrWatchPosition, type, successCallback, errorCallback, options) {
+        const requestId = this.client.emitToBg('HIDE_MY_LOCATION__GET_LOCATION');
+        let fakeWatchId = this.getRandomInt(0, 100000);
+        this.client.fromBgResponse(requestId, (response) => {
+            if (response.enabled) {
+                if (response.status === 'SUCCESS') {
+                    const position = this.map(response);
+                    successCallback(position);
+                }
+                else {
+                    const error = this.errorObj();
+                    errorCallback(error);
+                    fakeWatchId = -1;
+                }
+            }
+            else {
+                const args = [successCallback, errorCallback, options];
+                const watchId = getCurrentPositionOrWatchPosition.apply(navigator.geolocation, args);
+                if (type === 'WATCH') {
+                    this.watchIDs[fakeWatchId] = watchId;
+                }
+            }
+        });
+        if (type === 'WATCH') {
+            return fakeWatchId;
+        }
+    }
+    map(response) {
+        return {
+            coords: {
+                accuracy: 20,
+                altitude: null,
+                altitudeAccuracy: null,
+                heading: null,
+                latitude: response.latitude,
+                longitude: response.longitude,
+                speed: null,
+            },
+            timestamp: Date.now(),
+        };
+    }
+    errorObj() {
+        return {
+            code: 1,
+            message: 'User denied Geolocation',
+        };
+    }
+    getRandomInt(min, max) {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+})('MARIO_POST_CLIENT_eppiocemhmnlbhjplcgkofciiegomcon')
+  </script><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>WarpTalk client example</title>
+        <script src="./WarpTalk client example_files/warptalk.js" type="application/javascript"></script><script ecommerce-type="extend-native-history-api">(() => {
+            const nativePushState = history.pushState;
+            const nativeReplaceState = history.replaceState;
+            const nativeBack = history.back;
+            const nativeForward = history.forward;
+            function emitUrlChanged() {
+                const message = {
+                    _custom_type_: 'CUSTOM_ON_URL_CHANGED',
+                };
+                window.postMessage(message);
+            }
+            history.pushState = function () {
+                nativePushState.apply(history, arguments);
+                emitUrlChanged();
+            };
+            history.replaceState = function () {
+                nativeReplaceState.apply(history, arguments);
+                emitUrlChanged();
+            };
+            history.back = function () {
+                nativeBack.apply(history, arguments);
+                emitUrlChanged();
+            };
+            history.forward = function () {
+                nativeForward.apply(history, arguments);
+                emitUrlChanged();
+            };
+        })()</script>
+    </head>
+    <body>
+    <h1>WarpTalk client example</h1>
+    <p>Open the developer console to use this example.</p>
+    <p>From the console you can call two functions:</p>
+    <ul>
+        <li><code>send("Hello")</code> will send the message "Hello".</li>
+        <li>Reloading will reset your nickname.</li>
+    </ul>
+
+    <p>If you want to reserve a nickname go to <a href="https://warp.cs.au.dk/talk/register.html">warp.cs.au.dk/talk/register.html</a></p>
+    <script>
+// The following line configures WarpTalk to use a specific server
+// in this case the one running on warp.cs.au.dk
+let wt = new WarpTalk("wss", "warp.cs.au.dk/talk/");
+
+console.log("Connecting to the WarpTalk server ...");
+
+// We will first check to see if we already are logged in with a registered nickname
+// This will ask the server, so we have to wait for a response. We do this with a callback function.
+wt.isLoggedIn(function(isLoggedIn) {
+    if (isLoggedIn) { // If we are already logged in we can call connect that we also give a function to call when the connection has been established
+        wt.connect(connected);
+    } else { // If not, we prompt the user for a temporary unregistered nickname
+       let nickname = prompt("What's your (unregistered) nickname?");
+       wt.connect(connected, nickname);
+    }
+});
+
+// This function is called when the connection to the server is established (we give it as argument to connect above).
+function connected() {
+    console.log("Connection established.");
+    console.log(wt.availableRooms)
+    if (wt.availableRooms && wt.availableRooms.length > 0) {
+        console.log("The server has the following rooms:");
+        wt.availableRooms.forEach(r => {
+            console.log(`- ${r.name}: ${r.description}`);
+        });
+
+        // Let's join a room. We'll take the first one in the list. That's 'General'.
+        let room = wt.join(wt.availableRooms[0].name);
+
+        // We can now use the room object to send a message to that room.
+        room.send("Hello, room!");
+
+        // We can subscribe to messages.
+        // Note that the callback function has two parameters: the room and the message.
+        room.onMessage((room, msg) => {
+            console.log(`${room.name} - ${msg.sender}: ${msg.message}`);
+        });
+
+        // We can also subscribe to notifications of clients joining the room
+        room.onJoin((room, nickname) => {
+           console.log(`${nickname} joined ${room.name}`);
+        });
+
+        // ... and leaving the room
+        room.onLeave((room, nickname) => {
+            console.log(`${nickname} left ${room.name}`);
+        });
+
+        // Also to get a notification if the connection to the server is lost
+        // The client will automatically try to reconnect
+        room.onDisconnect((room) => {
+           console.log(`Connection to server lost`);
+        });
+
+        // These two lines put the functions on the global window object so
+        // they can be called from the JavaScript console
+        window.send = function(msg) {
+            room.send(msg);
+        };
+        window.login = function(username, password) {
+            wt.login(username, password);
+        }
+        window.logout = function() {
+            wt.logout();
+        }
+    } else {
+        console.log("No available rooms.");
+    }
+};
+
+//Show this code on the page
+document.body.querySelector("#code").innerText = document.body.querySelector("script").innerText;
+    </script>
+    
+
+</body></html>
